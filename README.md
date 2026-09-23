@@ -26,62 +26,13 @@ Amy 是一个面向长期工作的本地 AI Agent Harness。它不只完成当�
 
 ## Demo
 
-以下截图来自真实的本地 Run，不是静态概念稿。
-
-### 动态演示
-
 <p align="center">
-  <img src="docs/assets/amy-demo.gif" width="100%" alt="Amy 长任务执行动态演示" />
-</p>
-
-<p align="center">
-  Task 跟踪 · 文件工具 · Desktop 操作 · Artifact 交付
-</p>
-
-### Agent Workspace
-
-<p align="center">
-  <a href="docs/assets/amy-workspace.png">
-    <img src="docs/assets/amy-workspace.png" width="100%" alt="Amy Agent Workspace" />
+  <a href="docs/assets/amy-demo.png">
+    <img src="docs/assets/amy-demo.png" width="100%" alt="Amy Agent Workspace" />
   </a>
 </p>
 
-<p align="center"><sub>统一工作台：从自然语言目标开始工作，在普通模式与规划模式之间切换。</sub></p>
-
-### Long-Running Work
-
-<p align="center">
-  <a href="docs/assets/amy-task-run.png">
-    <img src="docs/assets/amy-task-run.png" width="100%" alt="Amy Task progress and Run panel" />
-  </a>
-</p>
-
-<p align="center"><sub>复杂任务的步骤进度、工具执行、交付物与 Run 状态在同一会话中持续可见。</sub></p>
-
-<details>
-<summary><strong>查看 Run Detail 与长期记忆</strong></summary>
-
-#### Run Detail & Trace
-
-<p align="center">
-  <a href="docs/assets/amy-run-detail.png">
-    <img src="docs/assets/amy-run-detail.png" width="100%" alt="Amy Run Detail and Trace" />
-  </a>
-</p>
-
-模型调用、Token、缓存、Run Budget、Post-Run 与执行轨迹使用同一份运行数据进行解释。
-
-#### Long-Term Memory
-
-<p align="center">
-  <a href="docs/assets/amy-memory.png">
-    <img src="docs/assets/amy-memory.png" width="100%" alt="Amy Long-Term Memory" />
-  </a>
-</p>
-
-Core Memory 随 Run 进入上下文，Ordinary Memory 只提供索引，由模型在需要时主动读取。
-
-</details>
+<p align="center"><sub>Amy Agent Workspace</sub></p>
 
 ## What Amy Can Do
 

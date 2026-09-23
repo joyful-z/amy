@@ -1243,8 +1243,8 @@ def test_plan_mode_send_creates_pending_task_and_accept(make_app) -> None:
                         id="plan-1",
                         name="task_create",
                         arguments={
-                            "title": "实现 Computer Runtime",
-                            "goal": "实现 Computer Runtime V1",
+                            "title": "实现 Agent Runtime",
+                            "goal": "实现 Agent Runtime V1",
                             "steps": [
                                 {"title": "定义 protocol"},
                                 {"title": "实现 observe"},
@@ -1268,7 +1268,7 @@ def test_plan_mode_send_creates_pending_task_and_accept(make_app) -> None:
                 "conversation.send",
                 {
                     "conversation_id": conversation_id,
-                    "content": "帮我实现 Computer Runtime",
+                    "content": "帮我实现 Agent Runtime",
                     "mode": "plan",
                 },
             )
@@ -1282,7 +1282,7 @@ def test_plan_mode_send_creates_pending_task_and_accept(make_app) -> None:
                 _rpc_call(websocket, 3, "task.get", {"task_id": plan_task_id})[0]
             )["task"]
             assert detail["status"] == "pending"
-            assert detail["goal"] == "实现 Computer Runtime V1"
+            assert detail["goal"] == "实现 Agent Runtime V1"
             assert len(detail["steps"]) == 3
 
             # accept: PENDING → ACTIVE。

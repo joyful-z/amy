@@ -4,12 +4,10 @@ import { describe, expect, it } from 'vitest'
 
 import type { AgentEvent } from '../api/types'
 import {
-  buildComputerContext,
   buildTurnView,
   formatDuration,
   formatTokens,
   humanizeToolName,
-  parseVerificationStatus,
   toolActiveLabel,
   toolDoneLabel,
 } from './turnPresentation'
@@ -48,33 +46,33 @@ describe('buildTurnView: tool timeline', () => {
       event({ type: 'agent_started', event_time: '2026-08-21T00:00:00.000Z' }),
       event({
         type: 'tool_started',
-        tool_call: toolCall('t1', 'computer_type', { text: '测试' }),
+        tool_call: toolCall('t1', 'read_file', { path: '/tmp/test.md' }),
       }),
       event({
         type: 'tool_completed',
-        tool_call: { id: 't1', name: 'computer_type', arguments: {} },
-        tool_result: { tool_call_id: 't1', tool_name: 'computer_type', success: true, output: 'ok', error: null, duration_ms: 10 },
+        tool_call: { id: 't1', name: 'read_file', arguments: {} },
+        tool_result: { tool_call_id: 't1', tool_name: 'read_file', success: true, output: 'ok', error: null, duration_ms: 10 },
       }),
       event({ type: 'agent_completed', event_time: '2026-08-21T00:00:10.000Z' }),
     ])
     expect(view.tools).toHaveLength(1)
     expect(view.tools[0].state).toBe('done')
-    expect(view.tools[0].label).toBe('已输入 “测试”')
+    expect(view.tools[0].label).toBe('已读取文件')
     expect(view.toolCount).toBe(1)
     expect(view.durationMs).toBe(10_000)
   })
 
   it('tool 失败标记 failed', () => {
     const view = buildTurnView([
-      event({ type: 'tool_started', tool_call: toolCall('t1', 'computer_click', {}) }),
+      event({ type: 'tool_started', tool_call: toolCall('t1', 'read_file', {}) }),
       event({
         type: 'tool_completed',
-        tool_call: { id: 't1', name: 'computer_click', arguments: {} },
-        tool_result: { tool_call_id: 't1', tool_name: 'computer_click', success: false, output: null, error: 'x', duration_ms: 5 },
+        tool_call: { id: 't1', name: 'read_file', arguments: {} },
+        tool_result: { tool_call_id: 't1', tool_name: 'read_file', success: false, output: null, error: 'x', duration_ms: 5 },
       }),
     ])
     expect(view.tools[0].state).toBe('failed')
-    expect(view.tools[0].label).toBe('点击失败')
+    expect(view.tools[0].label).toBe('无法读取文件')
   })
 
   it('toolCount 按 tool_call_id 去重', () => {
@@ -109,68 +107,15 @@ describe('buildTurnView: approval', () => {
 
   it('denied 后状态 failed', () => {
     const view = buildTurnView([
-      event({ type: 'tool_approval_required', tool_call: toolCall('t1', 'computer_type', {}) }),
+      event({ type: 'tool_approval_required', tool_call: toolCall('t1', 'run_shell_command', {}) }),
       event({
         type: 'tool_approval_completed',
-        tool_call: toolCall('t1', 'computer_type', {}),
+        tool_call: toolCall('t1', 'run_shell_command', {}),
         approval_decision: 'denied',
       }),
     ])
     expect(view.tools[0].approval).toBe('denied')
     expect(view.tools[0].state).toBe('failed')
-  })
-})
-
-describe('buildTurnView: verification', () => {
-  it('unverified computer 操作标记 unverified', () => {
-    const view = buildTurnView([
-      event({ type: 'tool_started', tool_call: toolCall('t1', 'computer_click', {}) }),
-      event({
-        type: 'tool_completed',
-        tool_call: { id: 't1', name: 'computer_click', arguments: {} },
-        tool_result: {
-          tool_call_id: 't1',
-          tool_name: 'computer_click',
-          success: true,
-          output: '{"delivery_status":"sent","verification_status":"unverified"}',
-          error: null,
-          duration_ms: 1,
-        },
-      }),
-    ])
-    expect(view.tools[0].verification).toBe('unverified')
-  })
-
-  it('observe 验证后把最近 unverified 操作标为 verified', () => {
-    const view = buildTurnView([
-      event({ type: 'tool_started', tool_call: toolCall('t1', 'computer_click', {}) }),
-      event({
-        type: 'tool_completed',
-        tool_call: { id: 't1', name: 'computer_click', arguments: {} },
-        tool_result: {
-          tool_call_id: 't1',
-          tool_name: 'computer_click',
-          success: true,
-          output: '{"verification_status":"unverified"}',
-          error: null,
-          duration_ms: 1,
-        },
-      }),
-      event({ type: 'tool_started', tool_call: toolCall('t2', 'computer_observe', {}) }),
-      event({
-        type: 'tool_completed',
-        tool_call: { id: 't2', name: 'computer_observe', arguments: {} },
-        tool_result: {
-          tool_call_id: 't2',
-          tool_name: 'computer_observe',
-          success: true,
-          output: '{"frontmost_verified":true}',
-          error: null,
-          duration_ms: 1,
-        },
-      }),
-    ])
-    expect(view.tools.find((t) => t.id === 't1')?.verification).toBe('verified')
   })
 })
 
@@ -251,75 +196,13 @@ describe('label helpers', () => {
   })
 
   it('toolActiveLabel 带参数摘要', () => {
-    expect(toolActiveLabel('computer_type', { text: '测试' })).toBe('输入 “测试”')
     expect(toolActiveLabel('read_file', { path: '/tmp/a.md' })).toBe('读取 /tmp/a.md')
-    expect(toolActiveLabel('computer_key', { key: 'n', modifiers: 'command' })).toBe('按键 ⌘ N')
     expect(toolActiveLabel('unknown_tool', {})).toBe('运行 unknown tool')
   })
 
   it('toolDoneLabel 完成/失败', () => {
-    expect(toolDoneLabel('computer_type', { text: 'x' }, true)).toBe('已输入 “x”')
-    expect(toolDoneLabel('computer_type', { text: 'x' }, false)).toBe('输入失败')
-  })
-})
-
-describe('parseVerificationStatus', () => {
-  it('解析 verified / unverified / frontmost_verified', () => {
-    expect(parseVerificationStatus('{"verification_status":"verified"}')).toBe('verified')
-    expect(parseVerificationStatus('{"verification_status":"unverified"}')).toBe('unverified')
-    expect(parseVerificationStatus('{"frontmost_verified":true}')).toBe('verified')
-    expect(parseVerificationStatus('hello')).toBeNull()
-    expect(parseVerificationStatus(null)).toBeNull()
-  })
-})
-
-describe('buildComputerContext', () => {
-  it('组合 Observation target、窗口、最近动作和验证状态', () => {
-    const events = [
-      event({
-        type: 'tool_started',
-        tool_call: toolCall('t1', 'computer_type', { text: ' Amy' }),
-      }),
-      event({
-        type: 'tool_completed',
-        tool_call: toolCall('t1', 'computer_type', {}),
-        tool_result: {
-          tool_call_id: 't1',
-          tool_name: 'computer_type',
-          success: true,
-          output: '{"verification_status":"verified","execution_mode":"background_ax"}',
-          error: null,
-          duration_ms: 20,
-        },
-      }),
-    ]
-    const context = buildComputerContext(events, {
-      id: 'snapshot-1',
-      created_at: null,
-      active_app: { name: 'Amy', bundle_id: null, pid: 1 },
-      target: { name: 'TextEdit', bundle_id: 'com.apple.TextEdit', pid: 2 },
-      active_window: {
-        ref: 'w1', title: 'Untitled', bounds: { x: 0, y: 0, width: 1, height: 1 },
-      },
-      windows: [],
-      elements: [],
-      screenshot_ref: null,
-    })
-    expect(context.target).toBe('TextEdit')
-    expect(context.window).toBe('Untitled')
-    expect(context.lastAction).toBe('已输入 “ Amy”')
-    expect(context.verification).toBe('已验证')
-    expect(context.executionMode).toBe('background ax')
-  })
-
-  it('没有 Session 证据时不虚构目标', () => {
-    expect(buildComputerContext([], null)).toMatchObject({
-      target: null,
-      window: null,
-      lastAction: null,
-      verification: null,
-      recentActions: [],
-    })
+    expect(toolDoneLabel('read_file', {}, true)).toBe('已读取文件')
+    expect(toolDoneLabel('read_file', {}, false)).toBe('无法读取文件')
   })
 })
 

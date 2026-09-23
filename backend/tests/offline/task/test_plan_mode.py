@@ -257,7 +257,7 @@ async def test_plan_mode_allows_read_and_search(tmp_path) -> None:
             _response(
                 tool_calls=(
                     _call("read_file", {"path": "a.py"}),
-                    _call("web_search", {"query": "computer runtime"}),
+                    _call("web_search", {"query": "agent runtime"}),
                 )
             ),
             _response(content="计划说明"),
@@ -287,8 +287,8 @@ async def test_plan_mode_creates_pending_task(tmp_path) -> None:
                     _call(
                         "task_create",
                         {
-                            "title": "实现 Computer Runtime",
-                            "goal": "实现 Computer Runtime V1",
+                            "title": "实现 Agent Runtime",
+                            "goal": "实现 Agent Runtime V1",
                             "steps": [
                                 {"title": "定义 protocol"},
                                 {"title": "实现 observe"},
@@ -312,7 +312,7 @@ async def test_plan_mode_creates_pending_task(tmp_path) -> None:
     task = await task_store.get(result.plan_task_id)
     assert task is not None
     assert task.status is TaskStatus.PENDING  # 初始 PENDING
-    assert task.goal == "实现 Computer Runtime V1"
+    assert task.goal == "实现 Agent Runtime V1"
     assert len(task.steps) == 3
     # 不要在尚未执行时伪造 DONE 步骤。
     assert all(step.status is TaskStepStatus.TODO for step in task.steps)
@@ -481,8 +481,8 @@ async def test_plan_mode_valid_pending_task_passes(tmp_path) -> None:
                     _call(
                         "task_create",
                         {
-                            "title": "实现 Computer Runtime",
-                            "goal": "实现 Computer Runtime V1",
+                            "title": "实现 Agent Runtime",
+                            "goal": "实现 Agent Runtime V1",
                             "steps": [
                                 {"title": "定义 protocol"},
                                 {"title": "实现 observe"},

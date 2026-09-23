@@ -91,14 +91,14 @@ describe('MessageList', () => {
             role: 'assistant',
             content: '让我先看一下',
             tool_calls: [
-              { id: 'call-1', name: 'computer_observe', arguments: {} },
+              { id: 'call-1', name: 'read_file', arguments: { path: 'README.md' } },
             ],
           },
           {
             role: 'assistant',
             content: '让我操作一下',
             tool_calls: [
-              { id: 'call-2', name: 'computer_click', arguments: {} },
+              { id: 'call-2', name: 'write_file', arguments: { path: 'report.md' } },
             ],
           },
           { role: 'assistant', content: '完成，这是结果。' },
@@ -107,7 +107,7 @@ describe('MessageList', () => {
     )
     expect(html).not.toContain('让我先看一下')
     expect(html).not.toContain('让我操作一下')
-    expect(html).not.toContain('computer_observe')
+    expect(html).not.toContain('read_file')
     expect(html).toContain('完成，这是结果。')
     // 只有最终一条正文，只有一个头像
     expect(html.match(/message-assistant__avatar/g)).toHaveLength(1)
@@ -117,57 +117,56 @@ describe('MessageList', () => {
     const html = renderToStaticMarkup(
       <MessageList
         messages={[
-          { role: 'user', content: '新建笔记输入测试新建' },
+          { role: 'user', content: '读取项目并生成报告' },
           {
             role: 'assistant',
             content: '',
             tool_calls: [
-              { id: 'c1', name: 'computer_open_app', arguments: { app: 'Notes' } },
+              { id: 'c1', name: 'read_file', arguments: { path: 'README.md' } },
             ],
           },
           {
             role: 'tool',
             tool_call_id: 'c1',
-            content: '{"success":true,"app":"Notes","bundle_id":"com.apple.Notes"}',
+            content: '{"success":true,"path":"README.md"}',
           },
           {
             role: 'assistant',
             content: '',
-            tool_calls: [{ id: 'c2', name: 'computer_observe', arguments: {} }],
+            tool_calls: [{ id: 'c2', name: 'write_file', arguments: { path: "report.md" } }],
           },
           {
             role: 'tool',
             tool_call_id: 'c2',
             content:
-              '{"role":"cell","ref":"e163","element_stats":{"observed":1956},' +
-              '"duration_ms":6174,"observation_id":"3de70440b1bc"}',
+              '{"success":true,"path":"report.md","duration_ms":6174}',
           },
           {
             role: 'assistant',
             content: '',
             tool_calls: [
-              { id: 'c3', name: 'computer_type', arguments: { text: '测试新建' } },
+              { id: 'c3', name: 'artifact_publish', arguments: { path: 'report.md' } },
             ],
           },
           {
             role: 'tool',
             tool_call_id: 'c3',
             content:
-              '{"delivery_status":"delivered","verification_status":"unverified"}',
+              '{"artifact_id":"artifact-1"}',
           },
           {
             role: 'assistant',
-            content: '✅ 完成！已经在备忘录中新建一条笔记……',
+            content: '完成！已经生成项目报告。',
           },
         ]}
       />,
     )
-    expect(html).toContain('新建笔记输入测试新建')
-    expect(html).toContain('✅ 完成！已经在备忘录中新建一条笔记')
+    expect(html).toContain('读取项目并生成报告')
+    expect(html).toContain('完成！已经生成项目报告')
     // 绝不能出现 ToolResult 的 JSON 噪音
-    expect(html).not.toContain('"role":"cell"')
+    expect(html).not.toContain('"path":"report.md"')
     expect(html).not.toContain('"duration_ms"')
-    expect(html).not.toContain('"observation_id"')
+    expect(html).not.toContain('"artifact_id"')
     expect(html).not.toContain('"element_stats"')
     expect(html).not.toContain('"delivery_status"')
     expect(html).not.toContain('"verification_status"')

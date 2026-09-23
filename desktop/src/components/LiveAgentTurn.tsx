@@ -116,7 +116,6 @@ export default function LiveAgentTurn({
             </>
           ) : null}
           {view.durationMs !== null ? ` · ${formatDuration(view.durationMs)}` : ''}
-          {view.targetApp ? ` · 目标 ${view.targetApp}` : ''}
         </footer>
       ) : null}
     </section>

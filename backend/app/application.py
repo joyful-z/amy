@@ -42,14 +42,6 @@ from app.automation import (
     register_automation_tools,
 )
 from app.checkpoint import SQLiteCheckpointStore
-from app.computer import (
-    ComputerHostStatus,
-    ComputerLeaseHook,
-    ComputerLeaseManager,
-    ComputerRuntime,
-    ComputerSessionManager,
-    register_computer_tools,
-)
 from app.context import (
     ContextManager,
     ContextSettings,
@@ -166,7 +158,7 @@ DEFAULT_SYSTEM_PROMPT = (
     "如果生成了用户需要保留、下载或查看的文件（如报告、CSV、代码、图片），"
     "在最终回答前调用 artifact_publish 发布它；如果最终交付的是结果链接，"
     "也用 artifact_publish 发布。普通中间文件、临时文件、Trace、"
-    "Computer Screenshot 不要发布为 Artifact；没有实际交付物时不要调用"
+    "临时文件和 Trace 不要发布为 Artifact；没有实际交付物时不要调用"
     "artifact_publish。"
 )
 
@@ -244,8 +236,6 @@ class Application:
         context_summary_config: ContextSummaryModelConfig | None = None,
         skill_learning_settings: SkillLearningSettings | None = None,
         desktop_approval: bool = False,
-        computer_runtime: ComputerRuntime | None = None,
-        computer_host_status: ComputerHostStatus | None = None,
         workspace_root: str | Path | None = None,
     ) -> None:
         self.database = Path(database).expanduser().resolve()
@@ -297,10 +287,6 @@ class Application:
         self._skill_learning_settings = skill_learning_settings
         # True = DesktopApprovalGate（Host）；False = ConsoleApprovalGate（CLI）。
         self.desktop_approval = desktop_approval
-        # Computer Runtime 由入口注入；None 时不注册 computer_* 工具。
-        self._computer_runtime = computer_runtime
-        # Computer Host 状态（bootstrap 产物；None = 未配置 Computer）。
-        self.computer_host_status = computer_host_status
         self.settings = settings or (
             effective_model_configuration.settings
             if effective_model_configuration is not None
@@ -345,9 +331,6 @@ class Application:
         self.desktop_approval_gate: DesktopApprovalGate | None = None
         self.artifact_store: SQLiteArtifactStore | None = None
         self.artifact_service: ArtifactService | None = None
-        self.computer_runtime: ComputerRuntime | None = None
-        self.computer_lease: ComputerLeaseManager | None = None
-        self.computer_session: ComputerSessionManager | None = None
         self.tool_registry: ToolRegistry | None = None
         self.task_store: FileTaskStore | None = None
         self.memory_manager: MemoryManager | None = None
@@ -479,41 +462,6 @@ class Application:
             default_model=self.model,
         )
 
-        # Computer Runtime 可注入真实 macOS 实现或测试 Fake；未注入则不注册，
-        # 普通 CLI / Host 现有功能完全不受影响。
-        computer_lease: ComputerLeaseManager | None = None
-        computer_session: ComputerSessionManager | None = None
-        computer_hooks = ()
-        if self._computer_runtime is not None:
-            computer_session = ComputerSessionManager()
-            set_session_manager = getattr(
-                self._computer_runtime, "set_session_manager", None
-            )
-            if callable(set_session_manager):
-                set_session_manager(computer_session)
-            begin_session = getattr(
-                self._computer_runtime, "begin_session_rpc", None
-            )
-            computer_lease = ComputerLeaseManager(
-                database.parent / "computer" / "machine.lock"
-            )
-            computer_hooks = (
-                ComputerLeaseHook(
-                    computer_lease,
-                    computer_session,
-                    session_starter=(
-                        begin_session if callable(begin_session) else None
-                    ),
-                ),
-            )
-            register_computer_tools(tool_registry, self._computer_runtime)
-            self.computer_runtime = self._computer_runtime
-            # 真实 MacOSComputerRuntime 才有显式 start / close；
-            # FakeComputerRuntime 没有 start，用 getattr 探测，不影响现有路径。
-            start_runtime = getattr(self._computer_runtime, "start", None)
-            if callable(start_runtime):
-                await start_runtime()
-
         _mark_deferred_tools(tool_registry, _DEFERRED_TOOL_NAMES)
 
         reflection_config = self._memory_reflection_config or MemoryReflectionConfig()
@@ -603,27 +551,16 @@ class Application:
             memory_maintenance_reflector=memory_maintenance_reflector,
             skill_store=skill_store,
             skill_context_provider=skill_context_provider,
-            tool_hooks=computer_hooks,
             post_run_submit=self.post_run_processor.submit,
             run_budget_config=self._run_budget_config,
         )
 
         run_store = SQLiteRunStore(database)
-        # Run 终态 finalizer 顺序：先 end ComputerSession（清 target/snapshot + 通知
-        # helper 清 Native 状态），再 release Machine Lease。
-        computer_finalizers: list[object] = []
-        if computer_session is not None:
-            end_session = getattr(self._computer_runtime, "end_session", None)
-            if callable(end_session):
-                computer_finalizers.append(end_session)
-        if computer_lease is not None:
-            computer_finalizers.append(computer_lease.release)
         run_manager = RunManager(
             run_store,
             checkpoint_store,
             runtime,
             approval_store=approval_store,
-            run_finalizers=tuple(computer_finalizers),
         )
         # 启动 reconciliation（Run + Checkpoint 统一处理）。
         reconciled_runs = await run_manager.initialize()
@@ -707,8 +644,6 @@ class Application:
         self.mcp_manager = mcp_manager
         self.mcp_statuses = mcp_statuses
         self.mcp_error = mcp_error
-        self.computer_lease = computer_lease
-        self.computer_session = computer_session
         self.runtime = runtime
         self.run_store = run_store
         self.run_manager = run_manager
@@ -720,7 +655,7 @@ class Application:
         self._started = True
 
     async def close(self) -> None:
-        """优雅关闭 Post-Run / Scheduler / MCP / Computer / 模型适配器（幂等）。"""
+        """优雅关闭 Post-Run / Scheduler / MCP / 模型适配器（幂等）。"""
 
         if not self._started:
             return
@@ -731,15 +666,6 @@ class Application:
             await self.automation_scheduler.shutdown()
         if self.mcp_manager is not None and self.tool_registry is not None:
             await self.mcp_manager.close(self.tool_registry)
-        if self.computer_lease is not None:
-            self.computer_lease.close()
-        if self.computer_session is not None:
-            self.computer_session.close()
-        if self.computer_runtime is not None:
-            # 只在确实注入真实 MacOSComputerRuntime（有 close）时关闭 helper。
-            close_runtime = getattr(self.computer_runtime, "close", None)
-            if callable(close_runtime):
-                await close_runtime()
         if self.memory_manager is not None:
             await self.memory_manager.close()
         if self.memory_embedding_adapter is not None:

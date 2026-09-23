@@ -22,12 +22,6 @@ const desktopApi = {
   notify: (notification: DesktopNotification): void => {
     ipcRenderer.send('amy:notify', notification)
   },
-  setApprovalVisible: (visible: boolean): void => {
-    ipcRenderer.send('amy:approval-set-visible', visible)
-  },
-  setApprovalSize: (height: number): void => {
-    ipcRenderer.send('amy:approval-set-size', height)
-  },
 } as const
 
 contextBridge.exposeInMainWorld('amy', desktopApi)

@@ -53,21 +53,6 @@ class RequestPrefixState:
         return (*self.sent_messages, *source_messages[previous_count:])
 
 
-def computer_verification_status(output: object) -> str | None:
-    """从统一工具输出中读取电脑输入的效果验证状态。"""
-
-    if not isinstance(output, str):
-        return None
-    try:
-        payload = json.loads(output)
-    except (TypeError, ValueError):
-        return None
-    if not isinstance(payload, dict):
-        return None
-    status = payload.get("verification_status")
-    return status if isinstance(status, str) else None
-
-
 def looks_like_textual_tool_call(content: str | None) -> bool:
     """识别被模型错误输出为普通文本的常见工具协议标记。"""
 
@@ -305,7 +290,6 @@ def tool_call_signature(tool_call: ToolCall) -> str:
 __all__ = [
     "RequestPrefixState",
     "add_usage",
-    "computer_verification_status",
     "looks_like_textual_tool_call",
     "offset_summary_state",
     "plan_failure_message",

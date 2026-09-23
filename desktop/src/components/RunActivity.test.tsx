@@ -147,15 +147,15 @@ describe('ActivityItems', () => {
 
   it('审批完成进入执行时间线，不让等待状态成为最后一条证据', () => {
     const events = [
-      event({ type: 'tool_approval_required', tool_call: { id: 'c1', name: 'computer_type', arguments: {} } }),
-      event({ event_id: 'approved', sequence: 2, type: 'tool_approval_completed', approval_decision: 'approved', tool_call: { id: 'c1', name: 'computer_type', arguments: {} } }),
+      event({ type: 'tool_approval_required', tool_call: { id: 'c1', name: 'run_shell_command', arguments: {} } }),
+      event({ event_id: 'approved', sequence: 2, type: 'tool_approval_completed', approval_decision: 'approved', tool_call: { id: 'c1', name: 'run_shell_command', arguments: {} } }),
     ]
     const entries = buildActivityEntries(events)
     expect(entries.map((entry) => entry.label)).toEqual(['等待你的审批', '审批已通过'])
     expect(entries.at(-1)?.state).toBe('done')
   })
 
-  it('浮窗只展示最近活动，并保留 Usage、Context 和 Trace 摘要', () => {
+  it('活动面板只展示最近活动，并保留 Usage、Context 和 Trace 摘要', () => {
     const events = [
       event({ event_id: 'started', sequence: 1, type: 'agent_started' }),
       event({

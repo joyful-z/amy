@@ -35,12 +35,12 @@ describe('plan mode desktop api', () => {
       plan_task_id: 'task-1',
       run: { id: 'run-2', mode: 'plan' },
     })
-    const data = await sendMessage('conv-1', '帮我实现 Computer Runtime', 'plan')
+    const data = await sendMessage('conv-1', '帮我实现 Agent Runtime', 'plan')
     expect(callMock).toHaveBeenCalledWith(
       'conversation.send',
       {
         conversation_id: 'conv-1',
-        content: '帮我实现 Computer Runtime',
+        content: '帮我实现 Agent Runtime',
         mode: 'plan',
       },
       { timeoutMs: 0 },

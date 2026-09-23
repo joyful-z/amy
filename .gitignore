@@ -38,7 +38,3 @@ desktop/node_modules/
 desktop/dist/
 desktop/dist-electron/
 desktop/.electron-home/
-
-# Swift / Swift Package Manager
-native/macos-computer-helper/.build/
-.swiftpm/

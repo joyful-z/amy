@@ -368,7 +368,7 @@ function MCPList({
       {restartRequired ? <div className="extension-restart-notice">MCP 配置与当前运行进程不同步，重启 Host 前旧连接与工具仍可能继续存在。</div> : null}
       {configError ? <div className="error-text extension-error">{configError}</div> : null}
       {servers.length === 0 ? (
-        <EmptyState title="尚未添加 MCP Server" hint="通过 stdio 连接可信的本地 MCP Server。" icon="computer" />
+        <EmptyState title="尚未添加 MCP Server" hint="通过 stdio 连接可信的本地 MCP Server。" icon="settings" />
       ) : (
         <div className="extension-list">
           {servers.map((server) => (

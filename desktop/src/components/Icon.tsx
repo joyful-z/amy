@@ -14,7 +14,6 @@ import {
   FileText,
   ListChecks,
   MessageSquare,
-  Monitor,
   MoreHorizontal,
   PanelLeftClose,
   PanelLeftOpen,
@@ -39,7 +38,6 @@ export type IconName =
   | 'automations'
   | 'approvals'
   | 'artifacts'
-  | 'computer'
   | 'memory'
   | 'settings'
   | 'plus'
@@ -67,7 +65,6 @@ const ICONS: Record<IconName, LucideIcon> = {
   automations: Workflow,
   approvals: ShieldCheck,
   artifacts: Archive,
-  computer: Monitor,
   memory: Brain,
   settings: Settings,
   plus: Plus,

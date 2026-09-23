@@ -1,16 +1,13 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { getComputerStatus, requestComputerPermission } from '../api/computer'
 import { getSystemInfo } from '../api/system'
-import ComputerStatusView from '../components/ComputerStatusView'
 import ExtensionsSettings from '../components/ExtensionsSettings'
 import ModelSettingsPanel from '../components/ModelSettingsPanel'
 import { ErrorState } from '../components/PageStates'
 import { PageShell } from '../components/PageShell'
 
 export default function SettingsPage(): React.JSX.Element {
-  const queryClient = useQueryClient()
   const [section, setSection] = useState<'general' | 'models' | 'extensions'>('general')
 
   const infoQuery = useQuery({
@@ -20,25 +17,7 @@ export default function SettingsPage(): React.JSX.Element {
     retry: false,
   })
 
-  const computerQuery = useQuery({
-    queryKey: ['computer-status'],
-    queryFn: () => getComputerStatus(),
-    refetchInterval: 5000,
-    retry: false,
-  })
-
   const desktop = window.amy
-
-  const doRequestPermission = async (
-    permission: 'accessibility' | 'screen_recording',
-  ): Promise<void> => {
-    try {
-      await requestComputerPermission(permission)
-      void queryClient.invalidateQueries({ queryKey: ['computer-status'] })
-    } catch (err) {
-      console.warn('computer permission request failed', err)
-    }
-  }
 
   return (
     <PageShell
@@ -64,7 +43,7 @@ export default function SettingsPage(): React.JSX.Element {
             <div className="settings-general">
               <header className="settings-content__header">
                 <h2>通用</h2>
-                <p>查看 Host、电脑操作权限和桌面客户端环境。</p>
+                <p>查看 Host 和桌面客户端环境。</p>
               </header>
 
               <section className="settings-group">
@@ -87,23 +66,6 @@ export default function SettingsPage(): React.JSX.Element {
                     <InfoRow label="Host 版本" value={infoQuery.data?.version ?? '—'} />
                     <InfoRow label="数据库" value={infoQuery.data?.database ?? '—'} mono />
                   </dl>
-                )}
-              </section>
-
-              <section className="settings-group">
-                <header className="settings-group__header">
-                  <div><h3>电脑操作</h3><p>macOS 辅助功能与屏幕读取权限</p></div>
-                </header>
-                <ComputerStatusView
-                  status={computerQuery.data ?? null}
-                  loading={computerQuery.isLoading}
-                  onRequestPermission={(p) => void doRequestPermission(p)}
-                />
-                {(computerQuery.data?.permissions.accessibility === 'required' ||
-                  computerQuery.data?.permissions.screen_recording === 'required') && (
-                  <div className="settings-section__hint">
-                    请求后若状态没有立即变化，请前往“系统设置 → 隐私与安全性”手动开启。
-                  </div>
                 )}
               </section>
 

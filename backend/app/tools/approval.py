@@ -56,7 +56,7 @@ class ApprovalRequest:
     description: str = ""
     run_id: str | None = None
     conversation_id: str | None = None
-    # 声明式审批落点：sandbox（进 Chat）/ desktop（跟随用户注意力，可进浮窗）。
+    # 保留字段用于持久化兼容；当前审批统一在主界面展示。
     ui_scope: str = "sandbox"
 
     def summary(self, *, max_arguments: int = 500) -> str:

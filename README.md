@@ -9,9 +9,8 @@
 [![CI](https://github.com/joyful-z/amy/actions/workflows/ci.yml/badge.svg)](https://github.com/joyful-z/amy/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![Desktop](https://img.shields.io/badge/Desktop-Electron-47848F?logo=electron&logoColor=white)
-![Platform](https://img.shields.io/badge/Computer_Runtime-macOS-111111?logo=apple&logoColor=white)
 
-[演示](#demo) · [核心能力](#what-amy-can-do) · [架构](#how-it-fits-together) · [快速开始](#quick-start) · [评测](#evaluation)
+[核心能力](#what-amy-can-do) · [架构](#how-it-fits-together) · [快速开始](#quick-start) · [评测](#evaluation)
 
 </div>
 
@@ -19,20 +18,10 @@ Amy 是一个面向长期工作的本地 AI Agent Harness。它不只完成当�
 长上下文、跟踪复杂任务、恢复中断 Run、使用本地与 MCP 工具，并从真实完成的工作中
 逐步形成可复用的记忆与 Skill。
 
-当前项目由 Python Host、Electron Desktop 和 macOS 原生 Computer Helper 组成，模型层
-通过统一 Adapter 接入 OpenAI、Qwen、DeepSeek 与 Anthropic。
+当前项目由 Python Host 和 Electron Desktop 组成，模型层通过统一 Adapter 接入
+OpenAI、Qwen、DeepSeek 与 Anthropic。
 
 > 当前阶段为本地开发版本，接口、数据格式和交互仍可能调整。
-
-## Demo
-
-<p align="center">
-  <a href="docs/assets/amy-demo.png">
-    <img src="docs/assets/amy-demo.png" width="100%" alt="Amy Agent Workspace" />
-  </a>
-</p>
-
-<p align="center"><sub>Amy Agent Workspace</sub></p>
 
 ## What Amy Can Do
 
@@ -46,8 +35,7 @@ Amy 是一个面向长期工作的本地 AI Agent Harness。它不只完成当�
 - **Run / Recovery** — 持久化 Run 生命周期，通过 Checkpoint 从中断边界创建恢复 Run。
 - **Trace & Usage** — 记录模型、工具、审批、压缩和 Post-Run 事件，并拆分缓存与可计费用量。
 - **Automation** — 支持 once、interval 和 cron，将定时输入送入正常 Conversation/Run 链路。
-- **Async Approval** — 高风险工具可后台等待用户审批，Desktop 浮窗负责继续或拒绝执行。
-- **Computer Runtime (macOS)** — 原生 Helper 提供结构化观察、目标验证和受控桌面操作。
+- **Async Approval** — 高风险工具可后台等待用户审批，并在 Chat 或审批页继续或拒绝执行。
 - **Artifacts** — 将 Run 生成的文件或链接作为可追踪交付物发布到 Desktop。
 - **Desktop** — 提供聊天、实时执行过程、Task、Memory、Run、Trace、Automation、Approval 和扩展管理。
 
@@ -64,7 +52,7 @@ ConversationService
        ↙       ↘
 Context          ToolRegistry → Permission → Executor → Hooks
   ↓                                      ↓
-Model Adapter                     Local / MCP / Computer
+Model Adapter                         Local / MCP
                                       ↓
                           Sandbox Supervisor (Shell / MCP)
            ↓
@@ -87,8 +75,8 @@ Amy Host
 ConversationService / RunManager / AgentRuntime
 ```
 
-`GET /health`、Computer screenshot 和 Artifact content 只承担本地 transport；正常业务
-通过 `WS /rpc` 完成。Host 默认只接受 loopback 客户端。
+`GET /health` 和 Artifact content 只承担本地 transport；正常业务通过 `WS /rpc` 完成。
+Host 默认只接受 loopback 客户端。
 
 ## Core Concepts
 
@@ -111,7 +99,6 @@ ConversationService / RunManager / AgentRuntime
 
 - Python 3.12+
 - Node.js 22+
-- macOS：只有使用 Computer Runtime 时需要，并需授予辅助功能权限
 
 ### 1. Clone and install Backend
 
@@ -219,15 +206,7 @@ npm run typecheck
 npm run build
 ```
 
-Native macOS Helper：
-
-```bash
-cd native/macos-computer-helper
-swift build
-swift Tests/protocol_check.swift
-```
-
-GitHub Actions 会运行以上 Backend、Desktop 和 Native macOS 基线。
+GitHub Actions 会运行以上 Backend 和 Desktop 基线。
 
 ## Repository Layout
 
@@ -246,12 +225,10 @@ amy/
 │   │   ├── checkpoint/              恢复边界
 │   │   ├── automation/              Automation 领域模型
 │   │   ├── scheduler/               定时调度
-│   │   ├── computer/                Computer Runtime
 │   │   ├── mcp/                     MCP Client
 │   │   └── server/                  Amy Host 与 WS /rpc
 │   └── tests/                        离线测试、E2E 与 Eval
 ├── desktop/                          Electron + React + TypeScript + Vite
-├── native/macos-computer-helper/     macOS 原生 Helper
 ├── workspace/                        Agent 被允许操作的本地工作区
 └── docs/                             设计、学习记录与评测报告说明
 ```
@@ -259,7 +236,6 @@ amy/
 ## Current Boundaries
 
 - Amy 目前以本地单用户环境为目标，不是公网多租户服务；
-- Computer Runtime 当前只支持 macOS；
 - MCP 当前主要接入 stdio Server；
 - Skill Learning 生成 Candidate，不自动绕过人工确认；
 - 完整 Live Eval 成本较高，日常开发默认运行离线测试，发布前才运行完整 Regression。

@@ -2,11 +2,6 @@
 
 import type { ReactElement } from 'react'
 import type { ApprovalRequest } from '../api/types'
-import {
-  computerActionDescription,
-  computerActionLabel,
-  isDesktopApproval,
-} from '../approval/computerApproval'
 import { Icon } from './Icon'
 import { Button } from './ui'
 
@@ -49,13 +44,8 @@ export default function ApprovalCard({
   onApprove,
   onDeny,
 }: ApprovalCardProps): ReactElement {
-  const desktop = isDesktopApproval(approval)
-  const title = desktop
-    ? computerActionLabel(approval)
-    : sandboxApprovalLabel(approval)
-  const description = desktop
-    ? computerActionDescription(approval)
-    : sandboxApprovalDescription(approval)
+  const title = sandboxApprovalLabel(approval)
+  const description = sandboxApprovalDescription(approval)
   const command = commandPreview(approval)
   const argsText = (() => {
     try {

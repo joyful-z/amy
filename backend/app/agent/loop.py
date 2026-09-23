@@ -26,7 +26,6 @@ from app.tools.executor import ToolExecutor
 from app.tools.registry import ToolRegistry
 
 from .budget import RunBudget, RunBudgetStatus, chargeable_tokens
-from .computer_guard import ComputerStagnationGuard
 from .context_session import RuntimeContextSession
 from .errors import (
     AgentRuntimeError,
@@ -223,9 +222,6 @@ class AgentLoop:
         plan_task_created = False
         plan_task_id: str | None = None
         finalization_pending = False
-        computer_verification_pending = False
-        computer_guard = ComputerStagnationGuard()
-        computer_halted = False
         budget_warning_emitted = False
         budget_closing_started = False
         budget_closing_delivery_used = False
@@ -348,9 +344,7 @@ class AgentLoop:
                 self._max_tool_rounds is not None
                 and len(tool_rounds) >= self._max_tool_rounds
             )
-            forced_without_budget = (
-                finalization_step or computer_halted or tool_round_limit_reached
-            )
+            forced_without_budget = finalization_step or tool_round_limit_reached
             closing_can_deliver = (
                 budget_forces_final
                 and not budget_closing_delivery_used
@@ -453,20 +447,12 @@ class AgentLoop:
                         ),
                     )
                 elif force_final_answer:
-                    if computer_halted:
-                        final_instruction = (
-                            "Computer 操作已因同一失败且桌面无进展而停止。不要再输出"
-                            "或伪造任何工具调用；请根据已有证据直接说明阻塞原因、"
-                            "已经完成的部分和用户可采取的恢复步骤。"
-                        )
-                    elif budget_forces_final:
+                    if budget_forces_final:
                         final_instruction = _RUN_BUDGET_FINALIZATION_MESSAGE
                     else:
                         final_instruction = (
                             "工具调用轮次已用完。请读取最后一条工具结果，停止"
-                            "调用工具并直接回答用户。对于 verification_status="
-                            "unverified 的电脑操作，只能说明事件已投递、效果未"
-                            "确认，不能宣称界面操作已经完成。"
+                            "调用工具并直接回答用户。"
                         )
                     request_messages = (
                         *request_messages,
@@ -894,18 +880,6 @@ class AgentLoop:
                         AgentStopReason.MODEL_ERROR,
                         step=step,
                     )
-                if computer_verification_pending and not computer_halted:
-                    messages.append(
-                        Message(
-                            role=MessageRole.SYSTEM,
-                            content=(
-                                "最近一次 computer_type 只确认输入事件已投递，尚未"
-                                "确认界面效果。必须先调用 computer_observe 获取新证据，"
-                                "不能直接向用户宣称操作完成。"
-                            ),
-                        )
-                    )
-                    continue
                 final_message = assistant_message
                 if mode is AgentMode.PLAN:
                     # Plan Mode 完成条件：不仅要 task_create/task_update 成功，
@@ -958,9 +932,6 @@ class AgentLoop:
                 closing_can_deliver=closing_can_deliver,
                 activated_tools=activated_tools,
                 context_session=context_session,
-                computer_guard=computer_guard,
-                computer_halted=computer_halted,
-                computer_verification_pending=computer_verification_pending,
                 previous_signature=previous_signature,
                 repeated_count=repeated_count,
                 emitter=emitter,
@@ -970,10 +941,6 @@ class AgentLoop:
             messages.extend(round_outcome.result_messages)
             previous_signature = round_outcome.previous_signature
             repeated_count = round_outcome.repeated_count
-            computer_halted = round_outcome.computer_halted
-            computer_verification_pending = (
-                round_outcome.computer_verification_pending
-            )
             plan_task_created = (
                 plan_task_created or round_outcome.plan_task_created
             )
@@ -1010,18 +977,11 @@ class AgentLoop:
             activated_tools.update(pending_activations)
             finalization_pending = (
                 step == self._max_steps
-                and (
-                    computer_halted
-                    or any(
-                        call.name == "computer_observe"
-                        for call in tool_calls_in_message
-                    )
-                    or self._run_budget.evaluate(
-                        usage,
-                        chargeable_tokens_override=budget_chargeable_tokens,
-                        model_calls_override=main_model_calls,
-                    ).should_finalize
-                )
+                and self._run_budget.evaluate(
+                    usage,
+                    chargeable_tokens_override=budget_chargeable_tokens,
+                    model_calls_override=main_model_calls,
+                ).should_finalize
             )
 
         error = MaxStepsExceededError(self._max_steps)

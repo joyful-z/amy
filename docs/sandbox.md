@@ -13,8 +13,7 @@ Sandbox V1 保护能够执行任意代码的入口，不改变 AgentRuntime 的 
 - 沙箱不可用、路径无效或策略无法强制时 fail closed。
 
 受控的内置文件、Task、Memory、Artifact 和 Search 工具继续在 Host 中执行，它们通过窄接口
-和领域校验限制能力。Computer Runtime 必须操作真实 macOS 桌面，继续依赖审批、ComputerSession、
-exact target、fresh observation 和执行后验证。
+和领域校验限制能力。
 
 ## 执行链
 

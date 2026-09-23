@@ -5,7 +5,7 @@ import type { ReactElement } from 'react'
 import { Icon, type IconName } from './Icon'
 
 export const EXAMPLE_PROMPTS = [
-  '打开备忘录，整理并写入今天的想法',
+  '总结这个项目的结构并生成一份说明',
   '整理一个文件夹里的文件并生成清单',
   '创建一个每天早晨执行的信息简报',
   '调研一个主题并制定可执行的计划',
@@ -18,10 +18,10 @@ const STARTERS: ReadonlyArray<{
   icon: IconName
 }> = [
   {
-    title: '操作电脑',
-    description: '打开应用、输入内容，并在关键操作前征求你的确认',
+    title: '理解项目',
+    description: '分析代码与文档，整理结构和关键实现',
     prompt: EXAMPLE_PROMPTS[0],
-    icon: 'computer',
+    icon: 'file',
   },
   {
     title: '整理文件',

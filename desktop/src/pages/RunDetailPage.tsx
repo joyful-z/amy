@@ -2,12 +2,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { listArtifacts } from '../api/artifacts'
-import { SERVER_URL } from '../api/config'
-import { getLatestComputerObservation } from '../api/computer'
 import { cancelRun, getRun, getRunTrace, recoverRun } from '../api/runs'
 import { buildTurnView, formatDuration, formatTokens, humanizeRunError } from '../agent/turnPresentation'
 import ArtifactList from '../components/ArtifactList'
-import ComputerObservationPanel from '../components/ComputerObservationPanel'
 import ContextInspector from '../components/ContextInspector'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import ExecutionTrace from '../components/ExecutionTrace'
@@ -32,7 +29,6 @@ export default function RunDetailPage({
   const [confirmCancel, setConfirmCancel] = useState(false)
   const runQuery = useQuery({ queryKey: ['run', runId], queryFn: () => getRun(runId), refetchInterval: 3000 })
   const traceQuery = useQuery({ queryKey: ['run-trace', runId], queryFn: () => getRunTrace(runId), refetchInterval: 3000 })
-  const computerQuery = useQuery({ queryKey: ['computer-observation', runId], queryFn: () => getLatestComputerObservation(runId), retry: false })
   const artifactsQuery = useQuery({ queryKey: ['artifacts', 'run', runId], queryFn: () => listArtifacts({ runId, limit: 100 }) })
   const run = runQuery.data
   const events = traceQuery.data?.events ?? []
@@ -120,18 +116,6 @@ export default function RunDetailPage({
               </section>
 
               <RunArtifactsSection artifacts={artifactsQuery.data ?? []} />
-
-              {computerQuery.data?.observation ? (
-                <section className="run-detail-section">
-                  <ComputerObservationPanel
-                    observation={computerQuery.data.observation}
-                    runId={computerQuery.data.run_id}
-                    eventTime={computerQuery.data.event_time}
-                    serverUrl={SERVER_URL}
-                    title="Computer activity"
-                  />
-                </section>
-              ) : null}
 
               <section className="run-detail-section">
                 <div className="section-heading"><div><h2>Trace</h2><p>Complete execution events grouped by model step</p></div></div>

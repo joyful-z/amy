@@ -12,16 +12,11 @@ from app.tools.executor import ToolExecutor
 from app.tools.hooks import ToolExecutionContext, ToolHook
 from app.tools.registry import ToolRegistry
 
-from .computer_guard import ComputerStagnationGuard
 from .context_session import RuntimeContextSession
 from .errors import RepeatedToolCallError
 from .event_stream import EventEmitter
 from .result import ToolCallRecord
-from .runtime_helpers import (
-    computer_verification_status,
-    plan_task_id_from_output,
-    tool_call_signature,
-)
+from .runtime_helpers import plan_task_id_from_output, tool_call_signature
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,8 +28,6 @@ class ToolRoundOutcome:
     pending_activations: frozenset[str]
     previous_signature: str | None
     repeated_count: int
-    computer_halted: bool
-    computer_verification_pending: bool
     plan_task_created: bool
     plan_task_id: str | None
     repeated_error: RepeatedToolCallError | None = None
@@ -67,9 +60,6 @@ class ToolRoundExecutor:
         closing_can_deliver: bool,
         activated_tools: set[str],
         context_session: RuntimeContextSession,
-        computer_guard: ComputerStagnationGuard,
-        computer_halted: bool,
-        computer_verification_pending: bool,
         previous_signature: str | None,
         repeated_count: int,
         emitter: EventEmitter,
@@ -104,8 +94,6 @@ class ToolRoundExecutor:
                     pending_activations=frozenset(pending_activations),
                     previous_signature=previous_signature,
                     repeated_count=repeated_count,
-                    computer_halted=computer_halted,
-                    computer_verification_pending=computer_verification_pending,
                     plan_task_created=plan_task_created,
                     plan_task_id=plan_task_id,
                     repeated_error=RepeatedToolCallError(tool_call.name),
@@ -129,21 +117,7 @@ class ToolRoundExecutor:
                 mode=mode,
                 closing_can_deliver=closing_can_deliver,
                 activated_tools=activated_tools,
-                computer_halted=computer_halted,
             )
-            guard_decision = computer_guard.record(tool_call, result)
-            if guard_decision.feedback:
-                result = result.model_copy(
-                    update={
-                        "error": "\n".join(
-                            part
-                            for part in (result.error, guard_decision.feedback)
-                            if part
-                        )
-                    }
-                )
-            if guard_decision.halt:
-                computer_halted = True
             if self._checkpoint_store is not None:
                 await self._checkpoint_store.complete_tool(run_id, result)
 
@@ -166,16 +140,6 @@ class ToolRoundExecutor:
             )
             result_messages.append(self._result_message(result))
 
-            if tool_call.name == "computer_type" and result.success:
-                computer_verification_pending = (
-                    computer_verification_status(result.output) == "unverified"
-                )
-            elif (
-                tool_call.name == "computer_observe"
-                and result.success
-                and computer_verification_pending
-            ):
-                computer_verification_pending = False
             if tool_call.name == TOOL_SEARCH_NAME and result.success:
                 pending_activations.update(
                     name
@@ -195,8 +159,6 @@ class ToolRoundExecutor:
             pending_activations=frozenset(pending_activations),
             previous_signature=previous_signature,
             repeated_count=repeated_count,
-            computer_halted=computer_halted,
-            computer_verification_pending=computer_verification_pending,
             plan_task_created=plan_task_created,
             plan_task_id=plan_task_id,
         )
@@ -210,7 +172,6 @@ class ToolRoundExecutor:
         mode: AgentMode,
         closing_can_deliver: bool,
         activated_tools: set[str],
-        computer_halted: bool,
     ) -> ToolResult:
         """执行一次工具调用，并在执行层落实模式与 Closing 边界。"""
 
@@ -219,7 +180,6 @@ class ToolRoundExecutor:
             mode=mode,
             closing_can_deliver=closing_can_deliver,
             activated_tools=activated_tools,
-            computer_halted=computer_halted,
         )
         if rejection is not None:
             await hook.before_execute(context)
@@ -256,13 +216,7 @@ class ToolRoundExecutor:
         mode: AgentMode,
         closing_can_deliver: bool,
         activated_tools: set[str],
-        computer_halted: bool,
     ) -> str | None:
-        if computer_halted and tool_call.name.startswith("computer_"):
-            return (
-                "computer_attempts_halted: repeated failures without desktop "
-                "progress; explain the blocker instead"
-            )
         if closing_can_deliver and not (
             self._registry.is_allowed_during_closing(tool_call.name, mode)
             and (

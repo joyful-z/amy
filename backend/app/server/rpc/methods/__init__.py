@@ -7,7 +7,6 @@ from . import (
     approvals,
     artifacts,
     automations,
-    computer,
     conversations,
     extensions,
     memories,
@@ -31,7 +30,6 @@ def build_dispatcher() -> RpcDispatcher:
     approvals.register(dispatcher)
     artifacts.register(dispatcher)
     tasks.register(dispatcher)
-    computer.register(dispatcher)
     memories.register(dispatcher)
     extensions.register(dispatcher)
     model_settings.register(dispatcher)

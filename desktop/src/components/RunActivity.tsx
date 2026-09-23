@@ -314,7 +314,6 @@ export function RunInspectorOverview({
           <div><dt>步骤</dt><dd>{view.steps}</dd></div>
           <div><dt>动作</dt><dd>{view.toolCount}</dd></div>
           <div><dt>耗时</dt><dd>{formatDuration(view.durationMs) || '—'}</dd></div>
-          {view.targetApp ? <div><dt>目标</dt><dd>{view.targetApp}</dd></div> : null}
         </dl>
       </section>
       <section className="inspector-section">

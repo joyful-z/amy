@@ -1,9 +1,4 @@
-/** Approvals 页面（UX 样板）：Pending / History 分段，统一 PageShell + toast。
-
-- desktop 审批显示人类可读动作（如 “Type text”），技术 tool_name 放次要位置。
-- Approve / Deny 用全局 toast 反馈，替代 inline notice。
-- 加载 / 空 / 错误用统一 PageStates。
-*/
+/** Approvals 页面：Pending / History 分段，统一 PageShell + toast。 */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
@@ -14,9 +9,6 @@ import {
   listApprovals,
 } from '../api/approvals'
 import type { ApprovalRequest, ApprovalStatus } from '../api/types'
-import {
-  isDesktopApproval,
-} from '../approval/computerApproval'
 import { PageShell } from '../components/PageShell'
 import { EmptyState, ErrorState, LoadingState } from '../components/PageStates'
 import { Badge, Button } from '../components/ui'
@@ -50,15 +42,6 @@ const STATUS_LABEL: Record<ApprovalStatus, string> = {
   denied: '已拒绝',
 }
 
-const COMPUTER_ACTION_LABEL: Record<string, string> = {
-  computer_click: '点击界面元素',
-  computer_type: '输入文字',
-  computer_key: '按下按键或快捷键',
-  computer_scroll: '滚动当前窗口',
-  computer_open_app: '打开应用',
-  computer_focus_window: '聚焦窗口',
-}
-
 function ApprovalItem({
   approval,
   busy,
@@ -70,22 +53,17 @@ function ApprovalItem({
   onApprove: (id: string) => void
   onDeny: (id: string) => void
 }): React.JSX.Element {
-  const desktop = isDesktopApproval(approval)
-  const title = desktop
-    ? (COMPUTER_ACTION_LABEL[approval.tool_name] ?? '操作这台 Mac')
-    : approval.tool_name
-
   return (
     <div className="approval-card">
       <div className="approval-card__heading">
         <div className="approval-card__icon">
           <span className="approval-card__icon-label">
-            {desktop ? '⌘' : '›'}
+            ›
           </span>
         </div>
         <div className="approval-card__content">
           <div className="approval-card__title-row">
-            <strong className="approval-card__title">{title}</strong>
+            <strong className="approval-card__title">{approval.tool_name}</strong>
             <Badge tone={STATUS_TONE[approval.status]}>{STATUS_LABEL[approval.status]}</Badge>
           </div>
           <details className="approval-card__details">
@@ -95,9 +73,6 @@ function ApprovalItem({
                 <div className="approval-card__reason">{approval.reason}</div>
               ) : null}
               <div className="approval-card__meta">
-                {desktop ? (
-                  <span className="text-muted">工具：{approval.tool_name}</span>
-                ) : null}
                 {approval.run_id ? (
                   <span className="text-muted">
                     Run：{approval.run_id.slice(0, 8)}
@@ -193,7 +168,7 @@ export default function ApprovalsPage(): React.JSX.Element {
   return (
     <PageShell
       title="审批"
-      subtitle="审查敏感操作；电脑操作仍会在独立浮窗中请求授权。"
+      subtitle="集中审查需要人工确认的敏感操作。"
       maxWidth={1360}
     >
       <section className="approvals-section">
@@ -214,7 +189,7 @@ export default function ApprovalsPage(): React.JSX.Element {
         ) : pending.length === 0 ? (
           <EmptyState
             title="暂无待处理审批"
-            hint="沙箱操作会显示在这里；电脑操作会打开桌面浮窗。"
+            hint="需要确认的操作会显示在这里。"
             icon="approvals"
           />
         ) : (

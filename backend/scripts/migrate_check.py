@@ -33,7 +33,7 @@ async def main() -> None:
     r = await store.create(
         run_id=None,
         conversation_id=None,
-        tool_name="computer_type",
+        tool_name="run_shell_command",
         tool_call_id="c1",
         arguments={"text": "x"},
         ui_scope="desktop",

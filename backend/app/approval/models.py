@@ -41,7 +41,7 @@ class ApprovalRequest(BaseModel):
     tool_call_id: str = Field(min_length=1)
     arguments: dict[str, Any] = Field(default_factory=dict)
     reason: str = ""
-    # 声明式审批落点：sandbox（进 Chat）/ desktop（跟随用户注意力，可进浮窗）。
+    # 保留字段用于数据库兼容；当前审批统一在主界面展示。
     ui_scope: str = "sandbox"
     status: ApprovalRequestStatus = ApprovalRequestStatus.PENDING
     created_at: datetime

@@ -44,7 +44,7 @@ describe('LiveAgentTurn', () => {
         events={[
           event({
             type: 'tool_started',
-            tool_call: { id: 't1', name: 'computer_observe', arguments: {} },
+            tool_call: { id: 't1', name: 'read_file', arguments: {} },
           }),
         ]}
         streamText="正在生成 **报告**"
@@ -87,14 +87,14 @@ describe('LiveAgentTurn', () => {
         events={[
           event({
             type: 'tool_started',
-            tool_call: { id: 't1', name: 'computer_type', arguments: { text: '测试' } },
+            tool_call: { id: 't1', name: 'read_file', arguments: { path: 'README.md' } },
           }),
           event({
             type: 'tool_completed',
-            tool_call: { id: 't1', name: 'computer_type', arguments: {} },
+            tool_call: { id: 't1', name: 'read_file', arguments: {} },
             tool_result: {
               tool_call_id: 't1',
-              tool_name: 'computer_type',
+              tool_name: 'read_file',
               success: true,
               output: 'ok',
               error: null,
@@ -106,7 +106,7 @@ describe('LiveAgentTurn', () => {
     )
     expect(html).not.toContain('turn-timeline')
     expect(html).not.toContain('agent-action')
-    expect(html).not.toContain('已输入 “测试”')
+    expect(html).not.toContain('已读取文件')
     expect(html).toContain('正在思考')
   })
 
@@ -128,56 +128,6 @@ describe('LiveAgentTurn', () => {
       />,
     )
     expect(html).not.toContain('agent-action--waiting')
-    expect(html).toContain('正在思考')
-  })
-
-  it('desktop 审批期间消息不重复浮窗中的操作过程', () => {
-    const html = renderToStaticMarkup(
-      <LiveAgentTurn
-        runId="run-1"
-        step={1}
-        events={[
-          event({
-            type: 'tool_started',
-            tool_call: { id: 't1', name: 'computer_type', arguments: {} },
-          }),
-          event({
-            type: 'tool_approval_required',
-            tool_call: { id: 't1', name: 'computer_type', arguments: {} },
-          }),
-        ]}
-      />,
-    )
-    expect(html).not.toContain('等待电脑操作确认')
-    expect(html).toContain('正在思考')
-  })
-
-  it('computer 验证状态不内嵌到聊天消息', () => {
-    const html = renderToStaticMarkup(
-      <LiveAgentTurn
-        runId="run-1"
-        step={1}
-        events={[
-          event({
-            type: 'tool_started',
-            tool_call: { id: 't1', name: 'computer_click', arguments: {} },
-          }),
-          event({
-            type: 'tool_completed',
-            tool_call: { id: 't1', name: 'computer_click', arguments: {} },
-            tool_result: {
-              tool_call_id: 't1',
-              tool_name: 'computer_click',
-              success: true,
-              output: '{"verification_status":"unverified"}',
-              error: null,
-              duration_ms: 5,
-            },
-          }),
-        ]}
-      />,
-    )
-    expect(html).not.toContain('操作已发送 · 等待验证')
     expect(html).toContain('正在思考')
   })
 

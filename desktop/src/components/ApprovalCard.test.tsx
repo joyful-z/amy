@@ -45,22 +45,4 @@ describe('ApprovalCard', () => {
     )
     expect(html).toContain('disabled=""')
   })
-
-  it('desktop 审批显示人类可读动作名与描述', () => {
-    const computerApproval: ApprovalRequest = {
-      ...approval,
-      tool_name: 'computer_type',
-      arguments: { text: 'hello' },
-    }
-    const html = renderToStaticMarkup(
-      <ApprovalCard
-        approval={computerApproval}
-        onApprove={() => {}}
-        onDeny={() => {}}
-      />,
-    )
-    expect(html).toContain('允许“输入文本”吗？')
-    expect(html).toContain('Amy 准备向当前应用输入')
-    expect(html).toContain('computer_type')
-  })
 })

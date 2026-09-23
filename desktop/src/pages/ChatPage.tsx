@@ -16,7 +16,6 @@ import { getTask, listTasks, planAccept, planReject } from '../api/tasks'
 import type { AgentMode, Message, Task } from '../api/types'
 import { latestRunId } from '../agent/runAnalysis'
 import { buildTurnView } from '../agent/turnPresentation'
-import { chatShouldShowApproval } from '../approval/computerApproval'
 import ApprovalCard from '../components/ApprovalCard'
 import ChatEmptyState from '../components/ChatEmptyState'
 import RunStatusBar from '../components/RunStatusBar'
@@ -172,7 +171,6 @@ export default function ChatPage({
       if (status) map[conv] = status
       const turn = buildTurnView(events, { now: Date.now() })
       if (turn.currentAction) activity[conv] = turn.currentAction
-      else if (turn.targetApp) activity[conv] = turn.targetApp
     }
     return { conversationStatus: map, conversationActivity: activity }
   }, [eventsByRun, runStatuses])
@@ -183,10 +181,9 @@ export default function ChatPage({
     refetchInterval: 2000,
     enabled: activeRunId !== null,
   })
-  // Chat 只负责 sandbox 审批；desktop 审批始终归独立浮窗。
   const pendingApproval =
     approvalsQuery.data?.find(
-      (approval) => chatShouldShowApproval(approval, activeRunId),
+      (approval) => approval.run_id === activeRunId,
     ) ?? null
 
   const artifactsQuery = useQuery({
@@ -386,7 +383,6 @@ export default function ChatPage({
       icon: 'check',
       onSelect: () => setMode((m) => (m === 'plan' ? 'normal' : 'plan')),
     },
-    { id: 'computer', label: '打开电脑控制', icon: 'computer', onSelect: () => onNavigate?.('computer') },
     {
       id: 'runs',
       label: '查看当前运行',

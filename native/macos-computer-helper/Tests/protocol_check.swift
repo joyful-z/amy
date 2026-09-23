@@ -627,8 +627,8 @@ do {
     let tLogic = typeLogic["result"] as? [String: Any]
     let tChars = tLogic?["characters"] as? [String: Any]
     check("chars empty == 0", tChars?["empty"] as? Int == 0)
-    check("chars Hello Amy == 11", tChars?["hello"] as? Int == 11)
-    check("chars 你好 Amy == 8", tChars?["cn"] as? Int == 8)
+    check("chars Hello Amy == 9", tChars?["hello"] as? Int == 9)
+    check("chars 你好 Amy == 6", tChars?["cn"] as? Int == 6)
     let tChunks = tLogic?["chunks"] as? [String: Any]
     check("chunks empty == 0", tChunks?["empty"] as? Int == 0)
     check("chunks short == 1", tChunks?["short"] as? Int == 1)

@@ -26,6 +26,7 @@ _ALLOWED_TOP_LEVEL_FIELDS = frozenset(
         "metadata",
         "allowed-tools",
         "allowed_tools",
+        "hidden",
     }
 )
 
@@ -45,6 +46,7 @@ class ParsedSkill(BaseModel):
     compatibility: str | None = None
     metadata: dict[str, object] | None = None
     allowed_tools: tuple[str, ...] = ()
+    hidden: bool = False
     body: str
 
 
@@ -99,6 +101,9 @@ def parse_skill_document(text: str, *, expected_name: str) -> ParsedSkill:
         raise SkillParseError("'metadata' must be a mapping")
 
     allowed_tools = _allowed_tools(data)
+    hidden = data.get("hidden", False)
+    if not isinstance(hidden, bool):
+        raise SkillParseError("'hidden' must be a boolean")
     if not body.strip():
         raise SkillParseError("empty skill body")
 
@@ -109,6 +114,7 @@ def parse_skill_document(text: str, *, expected_name: str) -> ParsedSkill:
         compatibility=compatibility,
         metadata=metadata_value,
         allowed_tools=allowed_tools,
+        hidden=hidden,
         body=body.strip(),
     )
 
@@ -139,10 +145,17 @@ def _allowed_tools(data: dict[str, Any]) -> tuple[str, ...]:
     raw = hyphen_key if hyphen_key is not None else underscore_key
     if raw is None:
         return ()
+    if isinstance(raw, str):
+        values = tuple(item.strip() for item in raw.split(","))
+        if not all(values):
+            raise SkillParseError("'allowed-tools' must not contain empty items")
+        return values
     if not isinstance(raw, list) or not all(
         isinstance(item, str) and item.strip() for item in raw
     ):
-        raise SkillParseError("'allowed-tools' must be a list of non-empty strings")
+        raise SkillParseError(
+            "'allowed-tools' must be a string or a list of non-empty strings"
+        )
     return tuple(str(item).strip() for item in raw)
 
 

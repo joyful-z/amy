@@ -17,6 +17,7 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any
+from urllib.parse import quote
 
 import httpx
 
@@ -31,6 +32,13 @@ _GITHUB_REPOSITORY_RE = re.compile(
     r"^(?:https://github\.com/)?"
     r"(?P<owner>[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,38}))"
     r"/(?P<repo>[A-Za-z0-9_.-]+?)(?:\.git)?/?$"
+)
+_GITHUB_TREE_RE = re.compile(
+    r"^https://github\.com/"
+    r"(?P<owner>[A-Za-z0-9][A-Za-z0-9_.-]{0,38})/"
+    r"(?P<repo>[A-Za-z0-9_.-]+)/tree/"
+    r"(?P<ref>[A-Za-z0-9_.-]+)/"
+    r"(?P<directory>[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*)/?$"
 )
 _MCP_NAME_RE = re.compile(r"^[A-Za-z0-9_]+$")
 _MAX_IMPORT_TEXT_CHARS = 200_000
@@ -50,6 +58,8 @@ class GitHubSkillSource:
     owner: str
     repository: str
     scope: SkillScope
+    ref: str | None = None
+    directory: PurePosixPath | None = None
 
     @property
     def slug(self) -> str:
@@ -57,7 +67,10 @@ class GitHubSkillSource:
 
     @property
     def url(self) -> str:
-        return f"https://github.com/{self.slug}"
+        repository_url = f"https://github.com/{self.slug}"
+        if self.ref is None or self.directory is None:
+            return repository_url
+        return f"{repository_url}/tree/{self.ref}/{self.directory.as_posix()}"
 
 
 @dataclass(frozen=True)
@@ -74,13 +87,22 @@ class ExtensionImportPlan:
         items: list[dict[str, Any]] = []
         actions: list[str] = []
         for source in self.skill_sources:
+            skill_name = (
+                source.directory.name
+                if source.directory is not None
+                else source.repository
+            )
             items.append(
                 {
                     "kind": "skill",
-                    "name": source.repository,
+                    "name": skill_name,
                     "source": source.url,
                     "scope": source.scope.value,
-                    "summary": "确认后下载仓库并安装其中通过校验的 Skill 包",
+                    "summary": (
+                        "确认后只安装指定目录中通过校验的 Skill 包"
+                        if source.directory is not None
+                        else "确认后下载仓库并安装其中通过校验的 Skill 包"
+                    ),
                 }
             )
             actions.extend(
@@ -210,7 +232,9 @@ async def apply_import_plan(
     packages: list[tuple[GitHubSkillSource, dict[str, bytes]]] = []
     for source in plan.skill_sources:
         archive = await _download_github_archive(source)
-        discovered = _skill_packages_from_archive(archive)
+        discovered = _skill_packages_from_archive(
+            archive, selected_directory=source.directory
+        )
         if not discovered:
             raise ExtensionImportError(
                 f"{source.slug} 中没有找到可由 Amy 加载的 SKILL.md"
@@ -317,10 +341,25 @@ def _skill_add_source(command: str, args: tuple[str, ...]) -> str | None:
 
 
 def _parse_github_source(value: str, scope: SkillScope) -> GitHubSkillSource:
+    tree_match = _GITHUB_TREE_RE.fullmatch(value.strip())
+    if tree_match is not None:
+        ref = tree_match.group("ref")
+        directory = PurePosixPath(tree_match.group("directory"))
+        if ref not in {".", ".."} and all(
+            part not in {".", ".."} for part in directory.parts
+        ):
+            return GitHubSkillSource(
+                owner=tree_match.group("owner"),
+                repository=tree_match.group("repo"),
+                scope=scope,
+                ref=ref,
+                directory=directory,
+            )
     match = _GITHUB_REPOSITORY_RE.fullmatch(value.strip())
     if match is None:
         raise ExtensionImportError(
-            "GitHub 来源必须是 https://github.com/owner/repo 或 owner/repo"
+            "GitHub 来源必须是仓库地址 owner/repo，或 "
+            "https://github.com/owner/repo/tree/分支/Skill目录"
         )
     return GitHubSkillSource(
         owner=match.group("owner"),
@@ -356,7 +395,7 @@ def _ensure_unique(
     skill_sources: list[GitHubSkillSource],
     mcp_servers: list[MCPServerConfig],
 ) -> None:
-    skill_slugs = [item.slug.lower() for item in skill_sources]
+    skill_slugs = [item.url.lower() for item in skill_sources]
     server_names = [item.name for item in mcp_servers]
     if len(skill_slugs) != len(set(skill_slugs)):
         raise ExtensionImportError("导入内容包含重复的 Skill 来源")
@@ -373,6 +412,8 @@ def _fingerprint(raw: str, scope: SkillScope, permission: str) -> str:
 
 async def _download_github_archive(source: GitHubSkillSource) -> bytes:
     url = f"https://api.github.com/repos/{source.slug}/zipball"
+    if source.ref is not None:
+        url += f"/{quote(source.ref, safe='')}"
     headers = {"Accept": "application/vnd.github+json", "User-Agent": "Amy"}
     try:
         async with httpx.AsyncClient(
@@ -406,14 +447,15 @@ async def _download_github_archive(source: GitHubSkillSource) -> bytes:
     return bytes(chunks)
 
 
-def _skill_packages_from_archive(archive: bytes) -> list[dict[str, bytes]]:
+def _skill_packages_from_archive(
+    archive: bytes, *, selected_directory: PurePosixPath | None = None
+) -> list[dict[str, bytes]]:
     try:
         bundle = zipfile.ZipFile(io.BytesIO(archive))
     except (OSError, zipfile.BadZipFile) as exc:
         raise ExtensionImportError("GitHub 返回的不是有效 ZIP 归档") from exc
 
-    files: dict[PurePosixPath, bytes] = {}
-    total = 0
+    entries: list[tuple[PurePosixPath, zipfile.ZipInfo]] = []
     for info in bundle.infolist():
         path = PurePosixPath(info.filename)
         if info.is_dir():
@@ -423,10 +465,40 @@ def _skill_packages_from_archive(archive: bytes) -> list[dict[str, bytes]]:
         mode = info.external_attr >> 16
         if stat.S_ISLNK(mode):
             continue
-        total += info.file_size
-        if total > _MAX_SKILL_PACKAGE_BYTES:
+        entries.append((path, info))
+
+    skill_directories = {
+        path.parent
+        for path, _ in entries
+        if path.name == "SKILL.md"
+        and (
+            selected_directory is None
+            or path.parts[1:-1] == selected_directory.parts
+        )
+    }
+    files: dict[PurePosixPath, bytes] = {}
+    total = 0
+    for path, info in entries:
+        if not any(
+            path == directory / "SKILL.md"
+            or (
+                path.is_relative_to(directory)
+                and (relative := path.relative_to(directory)).parts[0]
+                in _RESOURCE_DIRS
+                and len(relative.parts) >= 2
+            )
+            for directory in skill_directories
+        ):
+            continue
+        remaining = _MAX_SKILL_PACKAGE_BYTES - total
+        if info.file_size > remaining:
             raise ExtensionImportError("Skill 文件超过 10MB 安全限制")
-        files[path] = bundle.read(info)
+        with bundle.open(info) as handle:
+            content = handle.read(remaining + 1)
+        if len(content) > remaining:
+            raise ExtensionImportError("Skill 文件超过 10MB 安全限制")
+        files[path] = content
+        total += len(content)
 
     packages: list[dict[str, bytes]] = []
     for path, content in files.items():

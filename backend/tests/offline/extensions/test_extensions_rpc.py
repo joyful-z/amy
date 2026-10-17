@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import zipfile
+from pathlib import PurePosixPath
 from types import SimpleNamespace
 
 import pytest
@@ -239,6 +240,17 @@ def test_import_preview_recognizes_skill_installer_without_executing_it() -> Non
     assert any("不会执行 npx" in action for action in public["actions"])
 
 
+def test_import_preview_accepts_github_skill_directory() -> None:
+    url = "https://github.com/vercel-labs/skills/tree/main/skills/find-skills"
+    plan = parse_import_plan(url)
+
+    assert len(plan.skill_sources) == 1
+    assert plan.skill_sources[0].ref == "main"
+    assert str(plan.skill_sources[0].directory) == "skills/find-skills"
+    assert plan.public_dict()["items"][0]["name"] == "find-skills"
+    assert plan.public_dict()["items"][0]["source"] == url
+
+
 def test_import_preview_converts_external_mcp_json() -> None:
     plan = parse_import_plan(
         json.dumps(
@@ -305,6 +317,41 @@ async def test_import_apply_downloads_static_skill_without_running_command(
     assert not (tmp_path / "project/research/package.json").exists()
 
 
+@pytest.mark.asyncio
+async def test_import_apply_only_installs_selected_github_directory(
+    tmp_path, monkeypatch
+) -> None:
+    archive_buffer = io.BytesIO()
+    with zipfile.ZipFile(archive_buffer, "w") as archive:
+        for name in ("find-skills", "other-skill"):
+            archive.writestr(
+                f"repo-root/skills/{name}/SKILL.md",
+                f"---\nname: {name}\ndescription: example\n---\n\n# Steps\n",
+            )
+
+    async def fake_download(_source) -> bytes:
+        return archive_buffer.getvalue()
+
+    monkeypatch.setattr(importer, "_download_github_archive", fake_download)
+    skill_store = SkillStore(
+        user_dir=tmp_path / "user", project_dir=tmp_path / "project"
+    )
+    await skill_store.initialize()
+    plan = parse_import_plan(
+        "https://github.com/vercel-labs/skills/tree/main/skills/find-skills"
+    )
+
+    result = await apply_import_plan(
+        plan,
+        skill_store=skill_store,
+        mcp_store=MCPConfigurationStore(tmp_path / "mcp.json"),
+    )
+
+    assert [item["name"] for item in result["skills"]] == ["find-skills"]
+    assert (tmp_path / "project/find-skills/SKILL.md").is_file()
+    assert not (tmp_path / "project/other-skill").exists()
+
+
 def test_import_rejects_zip_path_traversal() -> None:
     archive_buffer = io.BytesIO()
     with zipfile.ZipFile(archive_buffer, "w") as archive:
@@ -312,6 +359,43 @@ def test_import_rejects_zip_path_traversal() -> None:
 
     with pytest.raises(ExtensionImportError, match="越界路径"):
         importer._skill_packages_from_archive(archive_buffer.getvalue())
+
+
+def test_import_size_limit_counts_selected_skill_files_only() -> None:
+    archive_buffer = io.BytesIO()
+    with zipfile.ZipFile(archive_buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("repo-root/unrelated.bin", b"x" * (11 * 1024 * 1024))
+        archive.writestr(
+            "repo-root/skills/agent-browser/SKILL.md",
+            "---\nname: agent-browser\ndescription: browser\n---\n\n# Usage\n",
+        )
+
+    packages = importer._skill_packages_from_archive(
+        archive_buffer.getvalue(),
+        selected_directory=PurePosixPath("skills/agent-browser"),
+    )
+
+    assert len(packages) == 1
+    assert "SKILL.md" in packages[0]
+
+
+def test_import_size_limit_still_rejects_large_selected_resource() -> None:
+    archive_buffer = io.BytesIO()
+    with zipfile.ZipFile(archive_buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "repo-root/skills/agent-browser/SKILL.md",
+            "---\nname: agent-browser\ndescription: browser\n---\n\n# Usage\n",
+        )
+        archive.writestr(
+            "repo-root/skills/agent-browser/assets/large.bin",
+            b"x" * (11 * 1024 * 1024),
+        )
+
+    with pytest.raises(ExtensionImportError, match="10MB"):
+        importer._skill_packages_from_archive(
+            archive_buffer.getvalue(),
+            selected_directory=PurePosixPath("skills/agent-browser"),
+        )
 
 
 @pytest.mark.asyncio

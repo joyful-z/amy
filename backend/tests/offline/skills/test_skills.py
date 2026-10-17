@@ -276,7 +276,7 @@ def test_parse_skill_document_rejects_non_mapping_metadata() -> None:
 @pytest.mark.parametrize(
     "allowed",
     [
-        "read_file",  # 非列表
+        "read_file, ",  # 空字符串项
         ["read_file", ""],  # 空字符串项
         [1, 2],  # 非字符串项
     ],
@@ -296,6 +296,21 @@ def test_parse_skill_document_rejects_unknown_top_level_field() -> None:
             "---\nname: demo\ndescription: 描述\nlicenceeeee: MIT\n---\n\n正文",
             expected_name="demo",
         )
+
+
+def test_parse_skill_document_accepts_external_allowed_tools_and_hidden() -> None:
+    parsed = parse_skill_document(
+        "---\nname: agent-browser\ndescription: browser\n"
+        "allowed-tools: Bash(agent-browser:*), Bash(npx agent-browser:*)\n"
+        "hidden: true\n---\n\n# Usage\n",
+        expected_name="agent-browser",
+    )
+
+    assert parsed.allowed_tools == (
+        "Bash(agent-browser:*)",
+        "Bash(npx agent-browser:*)",
+    )
+    assert parsed.hidden is True
 
 
 def test_parse_skill_document_rejects_conflicting_allowed_tools_keys() -> None:

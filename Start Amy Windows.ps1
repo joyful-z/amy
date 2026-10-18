@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 $projectDir = $PSScriptRoot
 $backendDir = Join-Path $projectDir 'backend'
@@ -43,18 +43,24 @@ if (-not (Test-LocalUrl 'http://127.0.0.1:5173/')) {
         -RedirectStandardError (Join-Path $logDir 'web.err.log') | Out-Null
 }
 
-for ($attempt = 0; $attempt -lt 10; $attempt++) {
-    if (Test-LocalUrl 'http://127.0.0.1:8000/health') { break }
+for ($attempt = 0; $attempt -lt 15; $attempt++) {
+    $hostReady = Test-LocalUrl 'http://127.0.0.1:8000/health'
+    $webReady = Test-LocalUrl 'http://127.0.0.1:5173/'
+    if ($hostReady -and $webReady) { break }
     Start-Sleep -Seconds 1
 }
-try {
-    Start-Process 'http://127.0.0.1:5173/' | Out-Null
-} catch {
-    Write-Host '浏览器未能自动打开，请手动访问 http://127.0.0.1:5173/'
+if ($webReady) {
+    try {
+        Start-Process 'http://127.0.0.1:5173/' | Out-Null
+    } catch {
+        Write-Host '浏览器未能自动打开，请手动访问 http://127.0.0.1:5173/'
+    }
 }
 
-if (-not (Test-LocalUrl 'http://127.0.0.1:8000/health')) {
+if (-not $hostReady) {
     Write-Host "Amy Host 启动失败，请检查 $logDir\host.err.log。"
+} elseif (-not $webReady) {
+    Write-Host "Amy 网页服务启动失败，请检查 $logDir\web.err.log。"
 } else {
     Write-Host 'Amy 已在本机启动：http://127.0.0.1:5173/'
 }
